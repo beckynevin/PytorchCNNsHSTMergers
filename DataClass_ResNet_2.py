@@ -102,17 +102,17 @@ def save_checkpoint(model, optimizer, save_path, epoch):
 
 accuracylist = []
 
-train_mergers_dataset = BinaryMergerDataset(path, 'train', mergers = True, transform = get_transforms(train=True), codetest=False)
-train_nonmergers_dataset = BinaryMergerDataset(path, 'train', mergers = False, transform = get_transforms(train=True), codetest=False)
+train_mergers_dataset = BinaryMergerDataset(path, 'train', mergers = True, transform = get_transforms(train=True), codetest=True)
+train_nonmergers_dataset = BinaryMergerDataset(path, 'train', mergers = False, transform = get_transforms(train=True), codetest=True)
 
 train_dataset_full = torch.utils.data.ConcatDataset([train_mergers_dataset, train_nonmergers_dataset])
-train_dataloader = DataLoader(train_dataset_full, shuffle = True, num_workers = 1, batch_size=64)
+train_dataloader = DataLoader(train_dataset_full, shuffle = True, num_workers = 1, batch_size=32)
 
-validation_mergers_dataset = BinaryMergerDataset(path, 'validation', mergers = True, transform = get_transforms(train=False), codetest=False)
-validation_nonmergers_dataset = BinaryMergerDataset(path, 'validation', mergers = False, transform = get_transforms(train=False), codetest=False)
+validation_mergers_dataset = BinaryMergerDataset(path, 'validation', mergers = True, transform = get_transforms(train=False), codetest=True)
+validation_nonmergers_dataset = BinaryMergerDataset(path, 'validation', mergers = False, transform = get_transforms(train=False), codetest=True)
 
 validation_dataset_full = torch.utils.data.ConcatDataset([validation_mergers_dataset, validation_nonmergers_dataset])
-validation_dataloader = DataLoader(validation_dataset_full, shuffle = True, num_workers = 1, batch_size=64)#num workers used to be 4
+validation_dataloader = DataLoader(validation_dataset_full, shuffle = True, num_workers = 1, batch_size=32)#num workers used to be 4
 
 #images, labels = next(iter(train_dataloader)) 
 
@@ -124,9 +124,9 @@ class ResNet(nn.Module): #inheritance --> can use anything in nn.Module NOT LIKE
         self, in_channels: int,  out_channels: int, pretrained: bool = True 
     ):
         super().__init__()
-        self.resnet = models.resnet18(pretrained=True) #self says "this variable belongs to the class"
+        self.resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT) #self says "this variable belongs to the class"
         #print(self.resnet)
-        # Freeze model parameters
+        # Freeze model parameters -- commented out on 5/11/23 to test if that's whats messing with accuracy
         for param in self.resnet.parameters():
             param.requires_grad = False
         #self.resnet.fc = nn.Linear(in_channels, out_channels, bias=True) #bias is like y-intercept #add activation here
@@ -147,7 +147,7 @@ model = model.to(device)
 #model.features[0] = torch.nn.Conv2d(model.features[0].kernel_sieze, (5,5))
 #model.classifier[6] = torch.nn.Linear(model.classifier[6].in_features, 1)
 print(model)
-NUM_EPOCHS = 100
+NUM_EPOCHS = 1
 BEST_MODEL_PATH = 'best_model.pth'
 best_accuracy = 0.0
 training_epoch_loss = []
@@ -229,4 +229,4 @@ plt.plot(np.arange(0,NUM_EPOCHS), accuracylist, label = 'validation')
 plt.legend()
 plt.xlabel('epoch')
 plt.ylabel('accuracy')
-plt.savefig('ResNer_accuracy.png')
+plt.savefig('ResNet_accuracy.png')
