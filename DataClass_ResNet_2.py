@@ -14,10 +14,6 @@ from astropy.visualization import AsinhStretch
 #from torchvision.io import read_image
 from tqdm import tqdm
 
-path = '/n/holystore01/LABS/hernquist_lab/Users/aschechter/z1mocks/'
-stretch = AsinhStretch()
-pad_val = int((256-202)/2)
-
 class BinaryMergerDataset(Dataset): #in future: put this in one file and always call it!
     def __init__(self, data_path, dataset, mergers = True, transform=None, codetest=False):
         self.dataset = dataset
@@ -79,7 +75,7 @@ class BinaryMergerDataset(Dataset): #in future: put this in one file and always 
 # test_dataloader = DataLoader(test_data, batch_size=64, shuffle=True)
 
 
-def get_transforms(train=True):
+def get_transforms(pad_val, train=True):
     transforms = []
     transforms.append(T.ToTensor())
     if train == True:
@@ -99,24 +95,6 @@ def save_checkpoint(model, optimizer, save_path, epoch):
         'optimizer_state_dict': optimizer.state_dict(),
         'epoch': epoch
     }, save_path)
-
-accuracylist = []
-
-train_mergers_dataset = BinaryMergerDataset(path, 'train', mergers = True, transform = get_transforms(train=True), codetest=True)
-train_nonmergers_dataset = BinaryMergerDataset(path, 'train', mergers = False, transform = get_transforms(train=True), codetest=True)
-
-train_dataset_full = torch.utils.data.ConcatDataset([train_mergers_dataset, train_nonmergers_dataset])
-train_dataloader = DataLoader(train_dataset_full, shuffle = True, num_workers = 1, batch_size=32)
-
-validation_mergers_dataset = BinaryMergerDataset(path, 'validation', mergers = True, transform = get_transforms(train=False), codetest=True)
-validation_nonmergers_dataset = BinaryMergerDataset(path, 'validation', mergers = False, transform = get_transforms(train=False), codetest=True)
-
-validation_dataset_full = torch.utils.data.ConcatDataset([validation_mergers_dataset, validation_nonmergers_dataset])
-validation_dataloader = DataLoader(validation_dataset_full, shuffle = True, num_workers = 1, batch_size=32)#num workers used to be 4
-
-#images, labels = next(iter(train_dataloader)) 
-
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 #common practice is to make a subclass
 class ResNet(nn.Module): #inheritance --> can use anything in nn.Module NOT LIKE A FUNCTION
@@ -138,95 +116,124 @@ class ResNet(nn.Module): #inheritance --> can use anything in nn.Module NOT LIKE
         print(x)
         return x
 
+def main():
+    path = 'data/'
+    stretch = AsinhStretch()
+    pad_val = int((256-202)/2)
 
-model = ResNet(512, 1, True)
-model = model.to(device)
-#print(model)
+    accuracylist = []
 
-#tweak model
-#model.features[0] = torch.nn.Conv2d(model.features[0].kernel_sieze, (5,5))
-#model.classifier[6] = torch.nn.Linear(model.classifier[6].in_features, 1)
-print(model)
-NUM_EPOCHS = 1
-BEST_MODEL_PATH = 'best_model.pth'
-best_accuracy = 0.0
-training_epoch_loss = []
-val_epoch_loss = []
-training_epoch_accuracy = []
-val_epoch_accuracy = []
-accuracy = []
-train_loss = 0.0
-train_acc = 0.0
-valid_loss = 0.0
-valid_acc = 0.0
+    train_mergers_dataset = BinaryMergerDataset(path, 'train', mergers = True, transform = get_transforms(pad_val, train=True), codetest=True)
+    train_nonmergers_dataset = BinaryMergerDataset(path, 'train', mergers = False, transform = get_transforms(pad_val, train=True), codetest=True)
 
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+    train_dataset_full = torch.utils.data.ConcatDataset([train_mergers_dataset, train_nonmergers_dataset])
+    train_dataloader = DataLoader(train_dataset_full, shuffle = True, num_workers = 1, batch_size=32)
 
-for epoch in range(NUM_EPOCHS):
-    
-    train_error_count = 0.0
-    for images, labels in tqdm(iter(train_dataloader)):
-        trainingloss = []
-        model.train(True) #default is not in training mode - need to tell pytorch to train
-        images = images.to(device=device, dtype=torch.float32)
-        labels = labels.to(device=device, dtype=torch.float32)
-        #print(images.size())
-        optimizer.zero_grad()
-        outputs = model(images)
-        labels = labels.unsqueeze(1)
-        #print(outputs.size())
-        #print(labels.size())
-        loss = F.binary_cross_entropy(outputs, labels)
-        loss.backward()
-        optimizer.step()
-        # Calculate Loss
-        trainingloss.append(loss.item())
-        train_error_count += float(torch.sum(torch.abs(labels - outputs.argmax(1))))
-        #print('length of training loss' len(trainingloss))
-    training_epoch_loss.append(trainingloss)
-    print('shape of training loss: ', np.shape(training_epoch_loss))
-    train_accuracy = 1.0 - float(train_error_count) / float(len(train_dataset_full))
-    training_epoch_accuracy.append(train_accuracy)
-    
-    val_error_count = 0.0
-    for images, labels in iter(validation_dataloader):
-        valloss = []
-        model.train(False)
-        images = torch.tensor(images, dtype=torch.float32).to(device)
-        labels = torch.tensor(labels, dtype=torch.float32).to(device)
-        outputs = model(images)
-        labels = labels.unsqueeze(1)
-        loss = F.binary_cross_entropy(outputs, labels)
-        valloss.append(loss.item())
-        val_error_count += float(torch.sum(torch.abs(labels - outputs.argmax(1))))
-    
-    val_epoch_loss.append(np.array(valloss))
-    val_accuracy = 1.0 - float(val_error_count) / float(len(validation_dataset_full))
-    accuracylist.append(val_accuracy)
-    print('%d: %f' % (epoch, val_accuracy))
-    if val_accuracy > best_accuracy:
-        torch.save(model.state_dict(), BEST_MODEL_PATH)
-        best_accuracy = val_accuracy
-    
-    save_checkpoint(model=model, optimizer=optimizer, save_path='/n/home09/aschechter/code/BinaryCNNTesting/PytorchCNNs/savedresnetmodel.txt', epoch = epoch)
-print('best accuracy:', best_accuracy)
-accuracylist = np.array(accuracylist)
-np.savetxt('/n/home09/aschechter/code/BinaryCNNTesting/PytorchCNNs/accuracy_resnettransfer.txt', accuracylist)
+    validation_mergers_dataset = BinaryMergerDataset(path, 'validation', mergers = True, transform = get_transforms(pad_val, train=False), codetest=True)
+    validation_nonmergers_dataset = BinaryMergerDataset(path, 'validation', mergers = False, transform = get_transforms(pad_val, train=False), codetest=True)
+
+    validation_dataset_full = torch.utils.data.ConcatDataset([validation_mergers_dataset, validation_nonmergers_dataset])
+    validation_dataloader = DataLoader(validation_dataset_full, shuffle = True, num_workers = 1, batch_size=32)#num workers used to be 4
+
+    #images, labels = next(iter(train_dataloader)) 
+
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+    print(f'device is {device}')
+
+    print('running model')
+    model = ResNet(512, 1, True)
+    model = model.to(device)
+    print(model)
+
+    #tweak model
+    #model.features[0] = torch.nn.Conv2d(model.features[0].kernel_sieze, (5,5))
+    #model.classifier[6] = torch.nn.Linear(model.classifier[6].in_features, 1)
+    NUM_EPOCHS = 100
+    BEST_MODEL_PATH = 'best_model.pth'
+    best_accuracy = 0.0
+    training_epoch_loss = []
+    val_epoch_loss = []
+    training_epoch_accuracy = []
+    val_epoch_accuracy = []
+    accuracy = []
+    train_loss = 0.0
+    train_acc = 0.0
+    valid_loss = 0.0
+    valid_acc = 0.0
+
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    print('beginning training')
+    for epoch in range(NUM_EPOCHS):
+        
+        train_error_count = 0.0
+        for images, labels in tqdm(iter(train_dataloader)):
+            trainingloss = []
+            model.train(True) #default is not in training mode - need to tell pytorch to train
+            images = images.to(device=device, dtype=torch.float32)
+            labels = labels.to(device=device, dtype=torch.float32)
+            #print(images.size())
+            optimizer.zero_grad()
+            outputs = model(images)
+            labels = labels.unsqueeze(1)
+            #print(outputs.size())
+            #print(labels.size())
+            loss = F.binary_cross_entropy(outputs, labels)
+            loss.backward()
+            optimizer.step()
+            # Calculate Loss
+            trainingloss.append(loss.item())
+            train_error_count += float(torch.sum(torch.abs(labels - outputs.argmax(1))))
+            #print('length of training loss' len(trainingloss))
+        training_epoch_loss.append(trainingloss)
+        print('shape of training loss: ', np.shape(training_epoch_loss))
+        train_accuracy = 1.0 - float(train_error_count) / float(len(train_dataset_full))
+        training_epoch_accuracy.append(train_accuracy)
+        
+        val_error_count = 0.0
+        for images, labels in iter(validation_dataloader):
+            valloss = []
+            model.train(False)
+            images = torch.tensor(images, dtype=torch.float32).to(device)
+            labels = torch.tensor(labels, dtype=torch.float32).to(device)
+            outputs = model(images)
+            labels = labels.unsqueeze(1)
+            loss = F.binary_cross_entropy(outputs, labels)
+            valloss.append(loss.item())
+            val_error_count += float(torch.sum(torch.abs(labels - outputs.argmax(1))))
+        
+        val_epoch_loss.append(np.array(valloss))
+        val_accuracy = 1.0 - float(val_error_count) / float(len(validation_dataset_full))
+        accuracylist.append(val_accuracy)
+        print('%d: %f' % (epoch, val_accuracy))
+        if val_accuracy > best_accuracy:
+            torch.save(model.state_dict(), BEST_MODEL_PATH)
+            best_accuracy = val_accuracy
+        
+        save_checkpoint(model=model, optimizer=optimizer, save_path='models/savedresnetmodel.txt', epoch = epoch)
+    print('best accuracy:', best_accuracy)
+    accuracylist = np.array(accuracylist)
+    np.savetxt('models/accuracy_resnettransfer.txt', accuracylist)
 
 
-## plot training and validation loss
-plt.figure()
-plt.plot(training_epoch_loss, label = 'training')
-plt.plot(val_epoch_loss, label = 'validation')
-plt.xlabel('epoch')
-plt.ylabel('loss')
-plt.legend()
-plt.savefig('ResNet_loss.png')
+    ## plot training and validation loss
+    plt.figure()
+    plt.plot(training_epoch_loss, label = 'training')
+    plt.plot(val_epoch_loss, label = 'validation')
+    plt.xlabel('epoch')
+    plt.ylabel('loss')
+    plt.legend()
+    plt.savefig('ResNet_loss.png')
 
-plt.figure()
-plt.plot(np.arange(0,NUM_EPOCHS), training_epoch_accuracy, label = 'training')
-plt.plot(np.arange(0,NUM_EPOCHS), accuracylist, label = 'validation')
-plt.legend()
-plt.xlabel('epoch')
-plt.ylabel('accuracy')
-plt.savefig('ResNet_accuracy.png')
+    plt.figure()
+    plt.plot(np.arange(0,NUM_EPOCHS), training_epoch_accuracy, label = 'training')
+    plt.plot(np.arange(0,NUM_EPOCHS), accuracylist, label = 'validation')
+    plt.legend()
+    plt.xlabel('epoch')
+    plt.ylabel('accuracy')
+    plt.savefig('ResNet_accuracy.png')
+
+
+if __name__ == '__main__':
+    # freeze_support() here if program needs to be frozen
+    main()  # execute this only when run directly, not when imported!
