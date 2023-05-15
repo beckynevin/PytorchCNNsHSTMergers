@@ -116,66 +116,6 @@ class ResNet(nn.Module): #inheritance --> can use anything in nn.Module NOT LIKE
         print(x)
         return x
 
-def main():
-    path = 'data/'
-    stretch = AsinhStretch()
-    pad_val = int((256-202)/2)
-
-    accuracylist = []
-
-    train_mergers_dataset = BinaryMergerDataset(path, 'train', mergers = True, transform = get_transforms(pad_val, train=True), codetest=True)
-    train_nonmergers_dataset = BinaryMergerDataset(path, 'train', mergers = False, transform = get_transforms(pad_val, train=True), codetest=True)
-
-    train_dataset_full = torch.utils.data.ConcatDataset([train_mergers_dataset, train_nonmergers_dataset])
-    train_dataloader = DataLoader(train_dataset_full, shuffle = True, num_workers = 1, batch_size=BATCH_SIZE)
-
-    validation_mergers_dataset = BinaryMergerDataset(path, 'validation', mergers = True, transform = get_transforms(pad_val, train=False), codetest=True)
-    validation_nonmergers_dataset = BinaryMergerDataset(path, 'validation', mergers = False, transform = get_transforms(pad_val, train=False), codetest=True)
-
-    validation_dataset_full = torch.utils.data.ConcatDataset([validation_mergers_dataset, validation_nonmergers_dataset])
-    validation_dataloader = DataLoader(validation_dataset_full, shuffle = True, num_workers = 1, batch_size=BATCH_SIZE)#num workers used to be 4
-
-    #images, labels = next(iter(train_dataloader)) 
-
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-    print(f'device is {device}')
-
-    print('running model')
-    model = ResNet(512, 1, True)
-    model = model.to(device)
-    print(model)
-
-#tweak model
-#model.features[0] = torch.nn.Conv2d(model.features[0].kernel_sieze, (5,5))
-#model.classifier[6] = torch.nn.Linear(model.classifier[6].in_features, 1)
-print(model)
-NUM_EPOCHS = 10
-BEST_MODEL_PATH = 'best_model.pth'
-best_accuracy = 0.0
-# training_epoch_loss = []
-# val_epoch_loss = []
-# training_epoch_accuracy = []
-# val_epoch_accuracy = []
-# accuracy = []
-# train_loss = 0.0
-# train_acc = 0.0
-# valid_loss = 0.0
-# valid_acc = 0.0
-
-loss = {} #loss history
-loss['train'] = []
-loss['validation'] = []
-err = {} #used later for accuracy
-err['train'] = []
-err['validation'] = []
-x_epoch = []
-
-fig = plt.figure()
-ax0 = fig.add_subplot(121, title="loss")
-ax1 = fig.add_subplot(122, title="top1err")
-
-optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 def draw_curve(current_epoch):
     x_epoch.append(current_epoch)
@@ -187,74 +127,7 @@ def draw_curve(current_epoch):
         ax0.legend()
         ax1.legend()
     fig.savefig('metrics.png')
-
-trainingloss = 0.0
-correct_labels_train = 0.0
-valloss = 0.0
-correct_labels_val = 0.0
-
-
-
-for epoch in range(NUM_EPOCHS):
     
-    #train_error_count = 0.0
-    for images, labels in tqdm(iter(train_dataloader)):
-        model.train(True) #default is not in training mode - need to tell pytorch to train
-        images = images.to(device=device, dtype=torch.float32)
-        labels = labels.to(device=device, dtype=torch.float32)
-        #print(images.size())
-        optimizer.zero_grad()
-        outputs = model(images)
-        labels = labels.unsqueeze(1)
-        #print(outputs.size())
-        #print(labels.size())
-        loss = F.binary_cross_entropy(outputs, labels)
-        # Calculate Loss
-        trainingloss += loss.item() * BATCH_SIZE
-        correct_labels_train += float(torch.sum(outputs == labels.data))
-        loss.backward()
-        optimizer.step()
-        #train_error_count += float(torch.sum(torch.abs(labels - outputs.argmax(1))))
-       # print('length of training loss', len(trainingloss))
-        training_epoch_loss = trainingloss / len(train_dataloader.dataset)
-        print(type(training_epoch_loss))
-        training_epoch_accuracy = correct_labels_train / len(train_dataloader.dataset)
-        #loss['train'].append(training_epoch_loss)
-        err['train'].append(1.0 - training_epoch_accuracy)        
-    # training_epoch_loss.append(trainingloss)
-    # print('shape of training loss: ', np.shape(training_epoch_loss))
-    # train_accuracy = 1.0 - float(train_error_count) / float(len(train_dataset_full))
-    # training_epoch_accuracy.append(train_accuracy)
-    
-    #val_error_count = 0.0
-    for images, labels in iter(validation_dataloader):
-        model.train(False)
-        model.eval() #added 5/13/23
-        images = torch.tensor(images, dtype=torch.float32).to(device)
-        labels = torch.tensor(labels, dtype=torch.float32).to(device)
-        outputs = model(images)
-        labels = labels.unsqueeze(1)
-        loss = F.binary_cross_entropy(outputs, labels)
-        #valloss.append(loss.item())
-        #val_error_count += float(torch.sum(torch.abs(labels - outputs.argmax(1))))
-        valloss += loss.item() * BATCH_SIZE
-        correct_labels_val += float(torch.sum(outputs == labels.data))
-        validation_epoch_loss = valloss / len(validation_dataloader.dataset)
-        validation_epoch_accuracy = correct_labels_val / len(validation_dataloader.dataset)
-        loss['validation'].append(validation_epoch_loss)
-        err['validation'].append(1.0 - validation_epoch_accuracy) 
-        
-    draw_curve(epoch)
-    save_checkpoint(model=model, optimizer=optimizer, save_path='/n/home09/aschechter/code/BinaryCNNTesting/PytorchCNNs/savedresnetmodel.txt', epoch = epoch)
-
-    # val_epoch_loss.append(np.array(valloss))
-    # val_accuracy = 1.0 - float(val_error_count) / float(len(validation_dataset_full))
-    # accuracylist.append(val_accuracy)
-    # print('%d: %f' % (epoch, val_accuracy))
-    # if val_accuracy > best_accuracy:
-    #     torch.save(model.state_dict(), BEST_MODEL_PATH)
-    #     best_accuracy = val_accuracy
-
 def Accuracy(model, dataloader): #https://blog.paperspace.com/training-validation-and-accuracy-in-pytorch/
     """
     This function computes accuracy
@@ -291,23 +164,157 @@ def Accuracy(model, dataloader): #https://blog.paperspace.com/training-validatio
             total_instances+=len(images)
     return round(total_correct/total_instances, 3)
 
-#print('best accuracy:', best_accuracy)
-#training accuracy
-training_accuracy = Accuracy(model, train_dataloader)
-validation_accuracy = Accuracy(model, validation_dataloader)
+def main():
+    path = 'data/'
+    stretch = AsinhStretch()
+    pad_val = int((256-202)/2)
+    BATCH_SIZE = 32
 
-accuracylist = np.array(accuracylist)
-np.savetxt('/n/home09/aschechter/code/BinaryCNNTesting/PytorchCNNs/accuracy_resnettransfer.txt', accuracylist)
+    accuracylist = []
+
+    train_mergers_dataset = BinaryMergerDataset(path, 'train', mergers = True, transform = get_transforms(pad_val, train=True), codetest=True)
+    train_nonmergers_dataset = BinaryMergerDataset(path, 'train', mergers = False, transform = get_transforms(pad_val, train=True), codetest=True)
+
+    train_dataset_full = torch.utils.data.ConcatDataset([train_mergers_dataset, train_nonmergers_dataset])
+    train_dataloader = DataLoader(train_dataset_full, shuffle = True, num_workers = 1, batch_size=BATCH_SIZE)
+
+    validation_mergers_dataset = BinaryMergerDataset(path, 'validation', mergers = True, transform = get_transforms(pad_val, train=False), codetest=True)
+    validation_nonmergers_dataset = BinaryMergerDataset(path, 'validation', mergers = False, transform = get_transforms(pad_val, train=False), codetest=True)
+
+    validation_dataset_full = torch.utils.data.ConcatDataset([validation_mergers_dataset, validation_nonmergers_dataset])
+    validation_dataloader = DataLoader(validation_dataset_full, shuffle = True, num_workers = 1, batch_size=BATCH_SIZE)#num workers used to be 4
+
+    #images, labels = next(iter(train_dataloader)) 
+
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+    print(f'device is {device}')
+
+    print('running model')
+    model = ResNet(512, 1, True)
+    model = model.to(device)
+    print(model)
+
+    #tweak model
+    #model.features[0] = torch.nn.Conv2d(model.features[0].kernel_sieze, (5,5))
+    #model.classifier[6] = torch.nn.Linear(model.classifier[6].in_features, 1)
+    print(model)
+    NUM_EPOCHS = 10
+    BEST_MODEL_PATH = 'best_model.pth'
+    best_accuracy = 0.0
+    # training_epoch_loss = []
+    # val_epoch_loss = []
+    # training_epoch_accuracy = []
+    # val_epoch_accuracy = []
+    # accuracy = []
+    # train_loss = 0.0
+    # train_acc = 0.0
+    # valid_loss = 0.0
+    # valid_acc = 0.0
+
+    loss = {} #loss history
+    loss['train'] = []
+    loss['validation'] = []
+    err = {} #used later for accuracy
+    err['train'] = []
+    err['validation'] = []
+    x_epoch = []
+
+    fig = plt.figure()
+    ax0 = fig.add_subplot(121, title="loss")
+    ax1 = fig.add_subplot(122, title="top1err")
+
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 
-## plot training and validation loss
-plt.figure()
-plt.plot(training_epoch_loss, label = 'training')
-plt.plot(validation_epoch_loss, label = 'validation')
-plt.xlabel('epoch')
-plt.ylabel('loss')
-plt.legend()
-plt.savefig('ResNet_loss.png')
+
+    trainingloss = 0.0
+    correct_labels_train = 0.0
+    valloss = 0.0
+    correct_labels_val = 0.0
+
+
+
+    for epoch in range(NUM_EPOCHS):
+        
+        #train_error_count = 0.0
+        for images, labels in tqdm(iter(train_dataloader)):
+            model.train(True) #default is not in training mode - need to tell pytorch to train
+            images = images.to(device=device, dtype=torch.float32)
+            labels = labels.to(device=device, dtype=torch.float32)
+            #print(images.size())
+            optimizer.zero_grad()
+            outputs = model(images)
+            labels = labels.unsqueeze(1)
+            #print(outputs.size())
+            #print(labels.size())
+            loss = F.binary_cross_entropy(outputs, labels)
+            # Calculate Loss
+            trainingloss += loss.item() * BATCH_SIZE
+            correct_labels_train += float(torch.sum(outputs == labels.data))
+            loss.backward()
+            optimizer.step()
+            #train_error_count += float(torch.sum(torch.abs(labels - outputs.argmax(1))))
+        # print('length of training loss', len(trainingloss))
+            training_epoch_loss = trainingloss / len(train_dataloader.dataset)
+            print(type(training_epoch_loss))
+            training_epoch_accuracy = correct_labels_train / len(train_dataloader.dataset)
+            #loss['train'].append(training_epoch_loss)
+            err['train'].append(1.0 - training_epoch_accuracy)        
+        # training_epoch_loss.append(trainingloss)
+        # print('shape of training loss: ', np.shape(training_epoch_loss))
+        # train_accuracy = 1.0 - float(train_error_count) / float(len(train_dataset_full))
+        # training_epoch_accuracy.append(train_accuracy)
+        
+        #val_error_count = 0.0
+        for images, labels in iter(validation_dataloader):
+            model.train(False)
+            model.eval() #added 5/13/23
+            images = torch.tensor(images, dtype=torch.float32).to(device)
+            labels = torch.tensor(labels, dtype=torch.float32).to(device)
+            outputs = model(images)
+            labels = labels.unsqueeze(1)
+            loss = F.binary_cross_entropy(outputs, labels)
+            #valloss.append(loss.item())
+            #val_error_count += float(torch.sum(torch.abs(labels - outputs.argmax(1))))
+            valloss += loss.item() * BATCH_SIZE
+            correct_labels_val += float(torch.sum(outputs == labels.data))
+            validation_epoch_loss = valloss / len(validation_dataloader.dataset)
+            validation_epoch_accuracy = correct_labels_val / len(validation_dataloader.dataset)
+            loss['validation'].append(validation_epoch_loss)
+            err['validation'].append(1.0 - validation_epoch_accuracy) 
+            
+        draw_curve(epoch)
+        save_checkpoint(model=model, optimizer=optimizer, save_path='models/savedresnetmodel.txt', epoch = epoch)
+
+        # val_epoch_loss.append(np.array(valloss))
+        # val_accuracy = 1.0 - float(val_error_count) / float(len(validation_dataset_full))
+        # accuracylist.append(val_accuracy)
+        # print('%d: %f' % (epoch, val_accuracy))
+        # if val_accuracy > best_accuracy:
+        #     torch.save(model.state_dict(), BEST_MODEL_PATH)
+        #     best_accuracy = val_accuracy
+
+
+
+
+    #print('best accuracy:', best_accuracy)
+    #training accuracy
+    training_accuracy = Accuracy(model, train_dataloader)
+    validation_accuracy = Accuracy(model, validation_dataloader)
+
+    accuracylist = np.array(accuracylist)
+    np.savetxt('models/accuracy_resnettransfer.txt', accuracylist)
+
+
+    ## plot training and validation loss
+    plt.figure()
+    plt.plot(training_epoch_loss, label = 'training')
+    plt.plot(validation_epoch_loss, label = 'validation')
+    plt.xlabel('epoch')
+    plt.ylabel('loss')
+    plt.legend()
+    plt.savefig('ResNet_loss.png')
 
     plt.figure()
     plt.plot(np.arange(0,NUM_EPOCHS), training_epoch_accuracy, label = 'training')
