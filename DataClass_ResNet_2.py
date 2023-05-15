@@ -96,24 +96,6 @@ def save_checkpoint(model, optimizer, save_path, epoch):
         'epoch': epoch
     }, save_path)
 
-accuracylist = []
-
-train_mergers_dataset = BinaryMergerDataset(path, 'train', mergers = True, transform = get_transforms(train=True), codetest=True)
-train_nonmergers_dataset = BinaryMergerDataset(path, 'train', mergers = False, transform = get_transforms(train=True), codetest=True)
-
-train_dataset_full = torch.utils.data.ConcatDataset([train_mergers_dataset, train_nonmergers_dataset])
-train_dataloader = DataLoader(train_dataset_full, shuffle = True, num_workers = 1, batch_size=BATCH_SIZE)
-
-validation_mergers_dataset = BinaryMergerDataset(path, 'validation', mergers = True, transform = get_transforms(train=False), codetest=True)
-validation_nonmergers_dataset = BinaryMergerDataset(path, 'validation', mergers = False, transform = get_transforms(train=False), codetest=True)
-
-validation_dataset_full = torch.utils.data.ConcatDataset([validation_mergers_dataset, validation_nonmergers_dataset])
-validation_dataloader = DataLoader(validation_dataset_full, shuffle = True, num_workers = 1, batch_size=BATCH_SIZE)#num workers used to be 4
-
-#images, labels = next(iter(train_dataloader)) 
-
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
 #common practice is to make a subclass
 class ResNet(nn.Module): #inheritance --> can use anything in nn.Module NOT LIKE A FUNCTION
     def __init__(
@@ -145,13 +127,13 @@ def main():
     train_nonmergers_dataset = BinaryMergerDataset(path, 'train', mergers = False, transform = get_transforms(pad_val, train=True), codetest=True)
 
     train_dataset_full = torch.utils.data.ConcatDataset([train_mergers_dataset, train_nonmergers_dataset])
-    train_dataloader = DataLoader(train_dataset_full, shuffle = True, num_workers = 1, batch_size=32)
+    train_dataloader = DataLoader(train_dataset_full, shuffle = True, num_workers = 1, batch_size=BATCH_SIZE)
 
     validation_mergers_dataset = BinaryMergerDataset(path, 'validation', mergers = True, transform = get_transforms(pad_val, train=False), codetest=True)
     validation_nonmergers_dataset = BinaryMergerDataset(path, 'validation', mergers = False, transform = get_transforms(pad_val, train=False), codetest=True)
 
     validation_dataset_full = torch.utils.data.ConcatDataset([validation_mergers_dataset, validation_nonmergers_dataset])
-    validation_dataloader = DataLoader(validation_dataset_full, shuffle = True, num_workers = 1, batch_size=32)#num workers used to be 4
+    validation_dataloader = DataLoader(validation_dataset_full, shuffle = True, num_workers = 1, batch_size=BATCH_SIZE)#num workers used to be 4
 
     #images, labels = next(iter(train_dataloader)) 
 
