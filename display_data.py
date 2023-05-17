@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import torch
@@ -106,16 +107,18 @@ def main():
         labels = labels.numpy()
         break  # Break after the first batch to plot a few images
     
-    print(np.shape(images), 'shape of images')
+    
 
-    fig, axs = plt.subplots(4, 8, figsize=(12, 6))
+    fig, axs = plt.subplots(5, 4, figsize=(12, 6))
     axs = axs.flatten()
 
     for i in range(len(axs)):
+        print(np.shape(images[i]), 'shape of images')
         image = np.transpose(images[i], (1, 2, 0))  # Transpose image dimensions if necessary
+        print('image shape', np.shape(image))
         label = labels[i]
         
-        axs[i].imshow(image)
+        axs[i].imshow(image[:,:,0], norm = matplotlib.colors.LogNorm())
         axs[i].set_title(f"Label: {label}")
         axs[i].axis('off')
 
