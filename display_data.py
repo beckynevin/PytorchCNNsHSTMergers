@@ -105,6 +105,8 @@ def main():
         images = images.numpy()
         labels = labels.numpy()
         break  # Break after the first batch to plot a few images
+    
+    print(np.shape(images), 'shape of images')
 
     fig, axs = plt.subplots(4, 8, figsize=(12, 6))
     axs = axs.flatten()
