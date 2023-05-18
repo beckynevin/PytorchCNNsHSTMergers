@@ -212,12 +212,12 @@ def main():
     # valid_loss = 0.0
     # valid_acc = 0.0
 
-    loss = {} #loss history
-    loss['train'] = []
-    loss['validation'] = []
-    err = {} #used later for accuracy
-    err['train'] = []
-    err['validation'] = []
+    modelloss = {} #loss history
+    modelloss['train'] = []
+    modelloss['validation'] = []
+    modelerr = {} #used later for accuracy
+    modelerr['train'] = []
+    modelerr['validation'] = []
     x_epoch = []
 
     fig = plt.figure()
@@ -226,7 +226,16 @@ def main():
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-
+    def draw_curve(current_epoch):
+        x_epoch.append(current_epoch)
+        ax0.plot(x_epoch, modelloss['train'], 'bo-', label='train')
+        ax0.plot(x_epoch, modelloss['validation'], 'ro-', label='val')
+        ax1.plot(x_epoch, modelerr['train'], 'bo-', label='train')
+        ax1.plot(x_epoch, modelerr['validation'], 'ro-', label='val')
+        if current_epoch == 0:
+            ax0.legend()
+            ax1.legend()
+        fig.savefig('metrics.png')
 
     trainingloss = 0.0
     correct_labels_train = 0.0
@@ -244,7 +253,8 @@ def main():
             labels = labels.to(device=device, dtype=torch.float32)
             #print(images.size())
             optimizer.zero_grad()
-            outputs = model(images)
+            outputs = model(images.double())
+            labels = labels.double()
             labels = labels.unsqueeze(1)
             #print(outputs.size())
             #print(labels.size())
@@ -259,8 +269,8 @@ def main():
             training_epoch_loss = trainingloss / len(train_dataloader.dataset)
             print(type(training_epoch_loss))
             training_epoch_accuracy = correct_labels_train / len(train_dataloader.dataset)
-            #loss['train'].append(training_epoch_loss)
-            err['train'].append(1.0 - training_epoch_accuracy)        
+            modelloss['train'].append(training_epoch_loss)
+            modelerr['train'].append(1.0 - training_epoch_accuracy)        
         # training_epoch_loss.append(trainingloss)
         # print('shape of training loss: ', np.shape(training_epoch_loss))
         # train_accuracy = 1.0 - float(train_error_count) / float(len(train_dataset_full))
@@ -272,7 +282,8 @@ def main():
             model.eval() #added 5/13/23
             images = torch.tensor(images, dtype=torch.float32).to(device)
             labels = torch.tensor(labels, dtype=torch.float32).to(device)
-            outputs = model(images)
+            outputs = model(images.double())
+            labels = labels.double()
             labels = labels.unsqueeze(1)
             loss = F.binary_cross_entropy(outputs, labels)
             #valloss.append(loss.item())
@@ -281,11 +292,11 @@ def main():
             correct_labels_val += float(torch.sum(outputs == labels.data))
             validation_epoch_loss = valloss / len(validation_dataloader.dataset)
             validation_epoch_accuracy = correct_labels_val / len(validation_dataloader.dataset)
-            loss['validation'].append(validation_epoch_loss)
-            err['validation'].append(1.0 - validation_epoch_accuracy) 
+            modelloss['validation'].append(validation_epoch_loss)
+            modelerr['validation'].append(1.0 - validation_epoch_accuracy) 
             
         draw_curve(epoch)
-        save_checkpoint(model=model, optimizer=optimizer, save_path='models/savedresnetmodel.txt', epoch = epoch)
+        save_checkpoint(model=model, optimizer=optimizer, save_path='/n/home09/aschechter/code/BinaryCNNTesting/PytorchCNNs/savedresnetmodel.txt', epoch = epoch)
 
         # val_epoch_loss.append(np.array(valloss))
         # val_accuracy = 1.0 - float(val_error_count) / float(len(validation_dataset_full))
@@ -294,6 +305,7 @@ def main():
         # if val_accuracy > best_accuracy:
         #     torch.save(model.state_dict(), BEST_MODEL_PATH)
         #     best_accuracy = val_accuracy
+
 
 
 
