@@ -118,7 +118,7 @@ def main():
         print('image shape', np.shape(image))
         label = labels[i]
         
-        axs[i].imshow(image[:,:,0], norm = matplotlib.colors.LogNorm())
+        axs[i].imshow(image)#[:,:,0], norm = matplotlib.colors.LogNorm())
         axs[i].set_title(f"Label: {label}")
         axs[i].axis('off')
 
